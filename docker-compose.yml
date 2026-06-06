@@ -1,0 +1,34 @@
+services:
+  node-a:
+    build: .
+    environment:
+      - LISTEN_ADDR=:3001
+      - STORAGE_ROOT=data_a
+    ports:
+      - "3001:3001"
+    networks:
+      - fs-network
+
+  node-b:
+    build: .
+    environment:
+      - LISTEN_ADDR=:3002
+      - STORAGE_ROOT=data_b
+    ports:
+      - "3002:3002"
+    networks:
+      - fs-network
+
+  node-c:
+    build: .
+    environment:
+      - LISTEN_ADDR=:3003
+      - STORAGE_ROOT=data_c
+    ports:
+      - "3003:3003"
+    networks:
+      - fs-network
+
+networks:
+  fs-network:
+    driver: bridge

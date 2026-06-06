@@ -1,0 +1,45 @@
+# Binaries
+*.exe
+*.out
+node
+/client
+!/client/
+
+# Build output
+/dist/
+
+# Test output
+*.test
+
+# Environment files (never commit secrets)
+.env
+.env.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform (Phase 5)
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+
+# Kubernetes secrets (Phase 6)
+k8s/secrets/
+
+# Old prep files
+devops-prep
+prep.go
+
+# Local storage data
+data/
+data_*/
+
+# Local private notes & planning assets
+.private/
