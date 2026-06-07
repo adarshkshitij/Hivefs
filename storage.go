@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/adarshkshitij/hivefs/metrics"
 )
 
 type PathTransformFunc func(string) string
@@ -58,6 +60,9 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 	}
 
 	slog.Info("file written to disk", "path", filePath, "bytes", n)
+
+	// Track bytes stored on disk
+	metrics.BytesStoredTotal.Add(float64(n))
 
 	return nil
 }

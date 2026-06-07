@@ -32,12 +32,13 @@ COPY --from=builder /fs-node .
 # Default environment variables
 ENV LISTEN_ADDR=":3000"
 ENV STORAGE_ROOT="data"
+ENV METRICS_ADDR=":9090"
 
 # Create storage directory
 RUN mkdir -p data
 
-# Expose the port
-EXPOSE 3000
+# Expose the application and metrics ports
+EXPOSE 3000 9090
 
 # Run the binary
 CMD ["./fs-node"]

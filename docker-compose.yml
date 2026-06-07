@@ -4,8 +4,10 @@ services:
     environment:
       - LISTEN_ADDR=:3001
       - STORAGE_ROOT=data_a
+      - METRICS_ADDR=:9090
     ports:
       - "3001:3001"
+      - "9091:9090"
     networks:
       - fs-network
 
@@ -14,8 +16,10 @@ services:
     environment:
       - LISTEN_ADDR=:3002
       - STORAGE_ROOT=data_b
+      - METRICS_ADDR=:9090
     ports:
       - "3002:3002"
+      - "9092:9090"
     networks:
       - fs-network
 
@@ -24,10 +28,41 @@ services:
     environment:
       - LISTEN_ADDR=:3003
       - STORAGE_ROOT=data_c
+      - METRICS_ADDR=:9090
     ports:
       - "3003:3003"
+      - "9093:9090"
     networks:
       - fs-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - fs-network
+    depends_on:
+      - node-a
+      - node-b
+      - node-c
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - fs-network
+    depends_on:
+      - prometheus
 
 networks:
   fs-network:

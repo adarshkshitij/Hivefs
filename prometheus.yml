@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "hivefs"
+    static_configs:
+      - targets:
+          - "node-a:9090"
+          - "node-b:9090"
+          - "node-c:9090"
+        labels:
+          cluster: "hivefs-local"

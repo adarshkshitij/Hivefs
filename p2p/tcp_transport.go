@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+
+	"github.com/adarshkshitij/hivefs/metrics"
 )
 
 type TCPPeer struct {
@@ -82,12 +84,17 @@ func (t *TCPTransport) startAcceptLoop() {
 
 func (t *TCPTransport) handleConn(conn net.Conn) {
 	var err error
+
+	// Track active peer connection
+	metrics.ActivePeers.Inc()
 	defer func() {
+		metrics.ActivePeers.Dec()
 		if err != nil && !errors.Is(err, io.EOF) {
 			slog.Error("dropping peer connection", "err", err, "remoteAddr", conn.RemoteAddr())
 		}
 		conn.Close()
 	}()
+
 	peer := NewTCPPeer(conn, true)
 	if err := t.HandshakeFunc(peer); err != nil {
 		slog.Error("TCP handshake error", "err", err, "remoteAddr", conn.RemoteAddr())
@@ -113,6 +120,11 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		}
 		rpc.From = conn.RemoteAddr()
 		t.rpcch <- *rpc
+
+		// Track message and bytes transferred
+		metrics.MessagesReceivedTotal.Inc()
+		metrics.BytesTransferredTotal.Add(float64(len(rpc.Payload)))
+
 		slog.Info("message received", "from", rpc.From, "payloadLen", len(rpc.Payload))
 	}
 }

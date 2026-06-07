@@ -30,7 +30,7 @@ This project is being progressively evolved from a working distributed core into
 |---|-------|-------------|--------|
 | 1 | **12-Factor App** | Env-var config + structured JSON logging | ✅ Complete |
 | 2 | **Containerization** | Multi-stage Docker build + 3-node Compose cluster | ✅ Complete |
-| 3 | **Observability** | Prometheus metrics + auto-provisioned Grafana dashboard | 🔄 In Progress |
+| 3 | **Observability** | Prometheus metrics + auto-provisioned Grafana dashboard | ✅ Complete |
 | 4 | **CI/CD Pipeline** | GitHub Actions — lint, test, Docker build | ⏳ Planned |
 | 5 | **Infrastructure as Code** | Terraform — VPC, Security Groups, EC2 on AWS | ⏳ Planned |
 | 6 | **Orchestration** | Kubernetes StatefulSet + PVC + Headless Service | ⏳ Planned |
@@ -48,10 +48,17 @@ graph LR
     NodeB <--> NodeC["🐝 Node C<br/>Port 3003<br/>data_c"]
     NodeC <--> NodeA["🐝 Node A<br/>Port 3001<br/>data_a"]
     
+    NodeA -.->|:9090| Prom["📊 Prometheus"]
+    NodeB -.->|:9090| Prom
+    NodeC -.->|:9090| Prom
+    Prom --> Grafana["📈 Grafana<br/>:3000"]
+    
     subgraph Docker Bridge Network [Custom Network]
         NodeA
         NodeB
         NodeC
+        Prom
+        Grafana
     end
     
     style Docker Bridge Network fill:#f5f5f5,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5
@@ -60,8 +67,9 @@ graph LR
 ### 2. Node Internal Architecture & Data Flow
 ```mermaid
 flowchart TD
-    ENV["Environment Variables<br/>(LISTEN_ADDR, STORAGE_ROOT)"] --> Binary["Go Binary"]
+    ENV["Environment Variables<br/>(LISTEN_ADDR, STORAGE_ROOT, METRICS_ADDR)"] --> Binary["Go Binary"]
     Binary --> LOGS["Structured JSON Logs<br/>(log/slog -> stdout)"]
+    Binary --> METRICS["/metrics HTTP Endpoint<br/>(Prometheus client)"]
     
     subgraph Node Components
         TCP["TCP Transport Layer<br/>(Accepts connections)"] --> P2P["P2P Engine<br/>(Handshake & RPC Decoder)"]
@@ -80,6 +88,9 @@ hivefs/
 ├── 📄 main.go                    # Entry point — wires all layers together
 ├── 📄 storage.go                 # Disk I/O — persists incoming data to files
 │
+├── 📁 metrics/                   # Prometheus instrumentation
+│   └── metrics.go               #   Gauge/Counter metric definitions
+│
 ├── 📁 client/                    # Test client package
 │   └── client.go                #   Sends RPC messages to a node
 │
@@ -91,8 +102,16 @@ hivefs/
 │   ├── message.go                #   RPC message type definition
 │   └── tcp_transport_test.go     #   Unit tests for TCP transport
 │
+├── 📁 grafana/                   # Grafana auto-provisioning
+│   ├── dashboards/
+│   │   └── hivefs_dashboard.json #   Pre-built cluster dashboard
+│   └── provisioning/
+│       ├── dashboards/dashboard.yml
+│       └── datasources/datasource.yml
+│
 ├── 🐳 Dockerfile                 # Multi-stage build: builder + minimal runtime
-├── 🐳 docker-compose.yml         # 3-node local cluster definition
+├── 🐳 docker-compose.yml         # 5-service stack (3 nodes + Prometheus + Grafana)
+├── 📊 prometheus.yml             # Scrape config for all HiveFS nodes
 ├── 📄 Makefile                   # Convenience build/run/test commands
 ├── 📄 go.mod                     # Go module definition
 └── 📄 .gitignore                 # Excludes binaries, env files, secrets
@@ -131,10 +150,10 @@ go run client/client.go
 {"time":"...","level":"INFO","msg":"message received","from":"127.0.0.1:55736","payloadLen":22}
 ```
 
-### Option B — Full 3-Node Cluster (Docker)
+### Option B — Full 5-Service Stack (Docker)
 
 ```sh
-# Spin up all 3 nodes
+# Spin up 3 nodes + Prometheus + Grafana
 docker compose up --build
 
 # Tear everything down
@@ -142,11 +161,18 @@ docker compose down -v
 ```
 
 **What you get:**
-- `node-a` → `localhost:3001` → `/data_a`
-- `node-b` → `localhost:3002` → `/data_b`
-- `node-c` → `localhost:3003` → `/data_c`
 
----
+| Service | URL | Purpose |
+|---------|-----|---------|
+| `node-a` | `localhost:3001` | HiveFS Node A (storage: `/data_a`) |
+| `node-b` | `localhost:3002` | HiveFS Node B (storage: `/data_b`) |
+| `node-c` | `localhost:3003` | HiveFS Node C (storage: `/data_c`) |
+| Prometheus | `localhost:9090` | Metrics scraper & query engine |
+| Grafana | `localhost:3000` | Dashboard (login: `admin` / `admin`) |
+
+> **Node metrics** are also individually accessible at `localhost:9091`, `localhost:9092`, `localhost:9093`
+
+
 
 ## Configuration
 
@@ -156,10 +182,11 @@ All config is via **environment variables** — zero hardcoded values (12-Factor
 |----------|---------|-------------|
 | `LISTEN_ADDR` | `:3001` | TCP address the node binds to |
 | `STORAGE_ROOT` | `data` | Root directory for file storage |
+| `METRICS_ADDR` | `:9090` | Prometheus metrics HTTP endpoint |
 
 ```sh
-# Custom port and storage path
-LISTEN_ADDR=:4000 STORAGE_ROOT=/mnt/storage go run main.go storage.go
+# Custom port, storage path, and metrics endpoint
+LISTEN_ADDR=:4000 STORAGE_ROOT=/mnt/storage METRICS_ADDR=:9100 go run .
 ```
 
 ---
@@ -223,16 +250,25 @@ make test
 
 ---
 
-## Observability (Phase 3 — In Progress)
+## Observability (Phase 3 — Complete)
 
-Prometheus metrics to be exposed at `/metrics`:
+HiveFS features built-in application-level telemetry with **Prometheus** metrics scraping and a pre-configured **Grafana** dashboard.
+
+### 📊 Metric Definitions
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `hivefs_active_connections` | Gauge | Live peer connections |
-| `hivefs_bytes_transferred_total` | Counter | Total bytes sent over network |
-| `hivefs_bytes_stored_total` | Counter | Total bytes written to disk |
-| `hivefs_messages_total` | Counter | RPC messages processed |
+| `hivefs_active_peers` | Gauge | Number of currently connected peer nodes |
+| `hivefs_bytes_transferred_total` | Counter | Total bytes received over TCP from peers |
+| `hivefs_messages_received_total` | Counter | Total number of RPC messages received and decoded |
+| `hivefs_bytes_stored_total` | Counter | Total bytes written to local disk storage |
+
+### 🎬 Live Telemetry Demo
+
+Here is a live recording of the Grafana dashboard showing real-time traffic spikes and active peer counts as payloads are distributed across the cluster:
+
+<!-- Replace this comment or placeholder with your uploaded video path/URL -->
+![HiveFS Live Monitoring Demo](https://raw.githubusercontent.com/adarshkshitij/Hivefs/main/.private/demo.gif)
 
 ---
 
