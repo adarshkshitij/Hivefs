@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hivefs
+spec:
+  serviceName: "hivefs-headless"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hivefs
+  template:
+    metadata:
+      labels:
+        app: hivefs
+    spec:
+      containers:
+      - name: hivefs-node
+        image: adarshkshitij/hivefs:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: p2p
+        envFrom:
+        - configMapRef:
+            name: hivefs-config
+        volumeMounts:
+        - name: hivefs-data
+          mountPath: /app/data
+  # PersistentVolumeClaim automatically provisions disk storage for each node
+  volumeClaimTemplates:
+  - metadata:
+      name: hivefs-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

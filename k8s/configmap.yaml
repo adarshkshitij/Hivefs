@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hivefs-config
+data:
+  STORAGE_ROOT: "data"
+  LISTEN_ADDR: ":3000"
