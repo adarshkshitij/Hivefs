@@ -31,9 +31,9 @@ This project is being progressively evolved from a working distributed core into
 | 1 | **12-Factor App** | Env-var config + structured JSON logging | ✅ Complete |
 | 2 | **Containerization** | Multi-stage Docker build + 3-node Compose cluster | ✅ Complete |
 | 3 | **Observability** | Prometheus metrics + auto-provisioned Grafana dashboard | ✅ Complete |
-| 4 | **CI/CD Pipeline** | GitHub Actions — lint, test, Docker build | ⏳ Planned |
-| 5 | **Infrastructure as Code** | Terraform — VPC, Security Groups, EC2 on AWS | ⏳ Planned |
-| 6 | **Orchestration** | Kubernetes StatefulSet + PVC + Headless Service | ⏳ Planned |
+| 4 | **CI/CD Pipeline** | GitHub Actions — lint, test, Docker build | ✅ Complete |
+| 5 | **Infrastructure as Code** | Terraform — VPC, Security Groups, EC2 on AWS | ✅ Complete |
+| 6 | **Orchestration** | Kubernetes StatefulSet + PVC + Headless Service | ✅ Complete |
 
 ---
 
